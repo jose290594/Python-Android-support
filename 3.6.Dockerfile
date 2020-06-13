@@ -129,7 +129,7 @@ RUN sed -i -e "s#Linux#DisabledLinuxCheck#" Python-3.6.10/Lib/platform.py
 ENV SYSROOT_LIB=${TOOLCHAIN}/sysroot/usr/lib/${TOOLCHAIN_TRIPLE}/${ANDROID_API_LEVEL}/ \
     SYSROOT_INCLUDE=${NDK}/sysroot/usr/include/
 RUN cd Python-3.6.10 && LDFLAGS="$(pkg-config --libs-only-L libffi) $(pkg-config --libs-only-L liblzma) -L${LIBBZ2_INSTALL_DIR}/lib -L$OPENSSL_INSTALL_DIR/lib" \
-    CFLAGS="${CFLAGS} -I${LIBBZ2_INSTALL_DIR}/include $(pkg-config --cflags-only-I libffi) $(pkg-config --cflags-only-I liblzma) " \
+    CFLAGS="${CFLAGS} -I${LIBBZ2_INSTALL_DIR}/include $(pkg-config --cflags-only-I libffi) $(pkg-config --cflags-only-I liblzma) -I${OPENSSL_INSTALL_DIR}}/include" \
     ./configure --host "$TOOLCHAIN_TRIPLE" --build "$COMPILER_TRIPLE" --enable-shared \
     --enable-ipv6 ac_cv_file__dev_ptmx=yes \
     ac_cv_file__dev_ptc=no --without-ensurepip ac_cv_little_endian_double=yes \
