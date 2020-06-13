@@ -97,7 +97,7 @@ RUN cd openssl-1.1.1d && make install SHLIB_EXT='${SHLIB_VERSION_NUMBER}.so'
 
 # This build container builds Python, rubicon-java, and any dependencies.
 FROM toolchain as build_python
-RUN apt-get update -qq && apt-get -qq install python3.7 pkg-config zip quilt
+RUN apt-get update -qq && apt-get -qq install python python3.7 pkg-config zip quilt
 
 # Get libs & vars
 COPY --from=build_openssl /opt/python-build/built/openssl /opt/python-build/built/openssl
@@ -117,7 +117,7 @@ ADD downloads/Python-3.6.10.tar.xz .
 # Modify ./configure so that, even though this is Linux, it does not append .1.0 to the .so file.
 RUN sed -i -e 's,INSTSONAME="$LDLIBRARY".$SOVERSION,,' Python-3.6.10/configure
 # Apply a C extensions linker hack; already fixed in Python 3.8+; see https://github.com/python/cpython/commit/254b309c801f82509597e3d7d4be56885ef94c11
-RUN sed -i -e s,'libraries or \[\],\["python3.7m"] + libraries if libraries else \["python3.7m"\],' Python-3.6.10/Lib/distutils/extension.py
+RUN sed -i -e s,'libraries or \[\],\["python3.6m"] + libraries if libraries else \["python3.6m"\],' Python-3.6.10/Lib/distutils/extension.py
 # Apply a hack to get the NDK library paths into the Python build. TODO(someday): Discuss with e.g. Kivy and see how to remove this.
 RUN sed -i -e "s# dirs = \[\]# dirs = \[os.environ.get('SYSROOT_INCLUDE'), os.environ.get('SYSROOT_LIB')\]#" Python-3.6.10/setup.py
 # Apply a hack to get the sqlite include path into setup.py. TODO(someday): Discuss with upstream Python if we can use pkg-config for sqlite.
@@ -154,10 +154,10 @@ RUN cd Python-3.6.10 && make
 # Modify stdlib & test suite before `make install`.
 
 # Apply a hack to ssl.py so it looks at the Android certificate store.
-ADD 3.7.patches Python-3.6.10/patches
+ADD 3.6.patches Python-3.6.10/patches
 RUN cd Python-3.6.10 && quilt push
 # Apply a hack to ctypes so that it loads libpython.so, even though this isn't Windows.
-RUN sed -i -e 's,pythonapi = PyDLL(None),pythonapi = PyDLL("libpython3.7m.so"),' Python-3.6.10/Lib/ctypes/__init__.py
+RUN sed -i -e 's,pythonapi = PyDLL(None),pythonapi = PyDLL("libpython3.6m.so"),' Python-3.6.10/Lib/ctypes/__init__.py
 # Hack the test suite so that when it tries to remove files, if it can't remove them, the error passes silently.
 # To see if ths is still an issue, run `test_bdb`.
 RUN sed -i -e "s#NotADirectoryError#NotADirectoryError, OSError#" Python-3.6.10/Lib/test/support/__init__.py
@@ -189,7 +189,7 @@ RUN cd Python-3.6.10 && rm Lib/test/test_wsgiref.py
 
 # Install Python.
 RUN cd Python-3.6.10 && make install
-RUN cp -a $PYTHON_INSTALL_DIR/lib/libpython3.7m.so "$JNI_LIBS"
+RUN cp -a $PYTHON_INSTALL_DIR/lib/libpython3.6m.so "$JNI_LIBS"
 ENV ASSETS_DIR $APPROOT/app/src/main/assets/
 RUN mkdir -p "$ASSETS_DIR" && cd "$PYTHON_INSTALL_DIR" && zip -0 -q "$ASSETS_DIR"/pythonhome.${TARGET_ABI_SHORTNAME}.zip -r .
 
