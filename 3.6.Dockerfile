@@ -135,6 +135,7 @@ RUN cd Python-3.6.10 && LDFLAGS="$(pkg-config --libs-only-L libffi) $(pkg-config
     --with-openssl=$OPENSSL_INSTALL_DIR \
     ac_cv_file__dev_ptc=no --without-ensurepip ac_cv_little_endian_double=yes \
     --prefix="$PYTHON_INSTALL_DIR" \
+    ac_cv_header_langinfo_h=no \
     ac_cv_func_setuid=no ac_cv_func_seteuid=no ac_cv_func_setegid=no ac_cv_func_getresuid=no ac_cv_func_setresgid=no ac_cv_func_setgid=no ac_cv_func_sethostname=no ac_cv_func_setresuid=no ac_cv_func_setregid=no ac_cv_func_setreuid=no ac_cv_func_getresgid=no ac_cv_func_setregid=no ac_cv_func_clock_settime=no ac_cv_header_termios_h=no ac_cv_func_sendfile=no ac_cv_header_spawn_h=no ac_cv_func_posix_spawn=no \
     ac_cv_func_setlocale=no ac_cv_working_tzset=no ac_cv_member_struct_tm_tm_zone=no ac_cv_func_sched_setscheduler=no
 # Override ./configure results to futher force Python not to use some libc calls that trigger blocked syscalls.

@@ -181,7 +181,7 @@ function main() {
     # Allow TARGET_ABIs to be overridden by argv.
     TARGET_ABIS="${@:-x86 x86_64 armeabi-v7a arm64-v8a}"
     for TARGET_ABI_SHORTNAME in $TARGET_ABIS; do
-        build_one_abi "$TARGET_ABI_SHORTNAME" "${PYTHON_VERSION}"
+        build_one_abi "$TARGET_ABI_SHORTNAME"
     done
 
     # Make a ZIP file.
@@ -190,4 +190,4 @@ function main() {
 }
 
 download_urls
-main $@"
+main "$@"
