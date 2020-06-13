@@ -97,7 +97,7 @@ RUN cd openssl-1.1.1d && make install SHLIB_EXT='${SHLIB_VERSION_NUMBER}.so'
 
 # This build container builds Python, rubicon-java, and any dependencies.
 FROM toolchain as build_python
-RUN apt-get update -qq && apt-get -qq install python python3.7 pkg-config zip quilt
+RUN apt-get update -qq && apt-get -qq install python python3.6 pkg-config zip quilt
 
 # Get libs & vars
 COPY --from=build_openssl /opt/python-build/built/openssl /opt/python-build/built/openssl
@@ -119,7 +119,7 @@ RUN sed -i -e 's,INSTSONAME="$LDLIBRARY".$SOVERSION,,' Python-3.6.10/configure
 # Apply a C extensions linker hack; already fixed in Python 3.8+; see https://github.com/python/cpython/commit/254b309c801f82509597e3d7d4be56885ef94c11
 RUN sed -i -e s,'libraries or \[\],\["python3.6m"] + libraries if libraries else \["python3.6m"\],' Python-3.6.10/Lib/distutils/extension.py
 # Apply a hack to get the NDK library paths into the Python build. TODO(someday): Discuss with e.g. Kivy and see how to remove this.
-RUN sed -i -e "s# dirs = \[\]# dirs = \[os.environ.get('SYSROOT_INCLUDE'), os.environ.get('SYSROOT_LIB')\]#" Python-3.6.10/setup.py
+RUN sed -i -e "s# dirs = \[\]# dirs = \[os.environ.get('SYSROOT_INCLUDE'), os.environ.get('SYSROOT_LIB'), os.environ.get('OPENSSL_INSTALL_DIR') + '/include', os.environ.get('OPENSSL_INSTALL_DIR') + '/lib' \]#" Python-3.6.10/setup.py
 # Apply a hack to get the sqlite include path into setup.py. TODO(someday): Discuss with upstream Python if we can use pkg-config for sqlite.
 RUN sed -i -E 's,sqlite_inc_paths = [[][]],sqlite_inc_paths = ["/opt/python-build/built/sqlite/include"],' Python-3.6.10/setup.py
 # Apply a hack to make platform.py stop looking for a libc version.
@@ -132,7 +132,6 @@ RUN cd Python-3.6.10 && LDFLAGS="$(pkg-config --libs-only-L libffi) $(pkg-config
     CFLAGS="${CFLAGS} -I${LIBBZ2_INSTALL_DIR}/include $(pkg-config --cflags-only-I libffi) $(pkg-config --cflags-only-I liblzma) " \
     ./configure --host "$TOOLCHAIN_TRIPLE" --build "$COMPILER_TRIPLE" --enable-shared \
     --enable-ipv6 ac_cv_file__dev_ptmx=yes \
-    --with-openssl=$OPENSSL_INSTALL_DIR \
     ac_cv_file__dev_ptc=no --without-ensurepip ac_cv_little_endian_double=yes \
     --prefix="$PYTHON_INSTALL_DIR" \
     ac_cv_header_langinfo_h=no \
@@ -162,8 +161,8 @@ RUN sed -i -e 's,pythonapi = PyDLL(None),pythonapi = PyDLL("libpython3.6m.so"),'
 # To see if ths is still an issue, run `test_bdb`.
 RUN sed -i -e "s#NotADirectoryError#NotADirectoryError, OSError#" Python-3.6.10/Lib/test/support/__init__.py
 # Ignore some tests
-ADD 3.7.ignore_some_tests.py .
-RUN python3.7 3.7.ignore_some_tests.py $(find Python-3.6.10/Lib/test -iname '*.py') $(find Python-3.6.10/Lib/distutils/tests -iname '*.py') $(find Python-3.6.10/Lib/unittest/test/ -iname '*.py') $(find Python-3.6.10/Lib/lib2to3/tests -iname '*.py')
+ADD 3.6.ignore_some_tests.py .
+RUN python3.6 3.6.ignore_some_tests.py $(find Python-3.6.10/Lib/test -iname '*.py') $(find Python-3.6.10/Lib/distutils/tests -iname '*.py') $(find Python-3.6.10/Lib/unittest/test/ -iname '*.py') $(find Python-3.6.10/Lib/lib2to3/tests -iname '*.py')
 # Skip test_multiprocessing in test_venv.py. Not sure why this fails yet.
 RUN cd Python-3.6.10 && sed -i -e 's,def test_multiprocessing,def skip_test_multiprocessing,' Lib/test/test_venv.py
 # Skip test_faulthandler & test_signal & test_threadsignals. Signal delivery on Android is not super reliable.
