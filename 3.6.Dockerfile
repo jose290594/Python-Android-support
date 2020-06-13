@@ -113,22 +113,22 @@ RUN mkdir -p "$JNI_LIBS" && cp -a "$OPENSSL_INSTALL_DIR"/lib/*.so "$LIBBZ2_INSTA
 ENV PKG_CONFIG_PATH="/opt/python-build/built/libffi/lib/pkgconfig:/opt/python-build/built/xz/lib/pkgconfig"
 
 # Download & patch Python
-ADD downloads/Python-3.7.6.tar.xz .
+ADD downloads/Python-3.6.10.tar.xz .
 # Modify ./configure so that, even though this is Linux, it does not append .1.0 to the .so file.
-RUN sed -i -e 's,INSTSONAME="$LDLIBRARY".$SOVERSION,,' Python-3.7.6/configure
+RUN sed -i -e 's,INSTSONAME="$LDLIBRARY".$SOVERSION,,' Python-3.6.10/configure
 # Apply a C extensions linker hack; already fixed in Python 3.8+; see https://github.com/python/cpython/commit/254b309c801f82509597e3d7d4be56885ef94c11
-RUN sed -i -e s,'libraries or \[\],\["python3.7m"] + libraries if libraries else \["python3.7m"\],' Python-3.7.6/Lib/distutils/extension.py
+RUN sed -i -e s,'libraries or \[\],\["python3.7m"] + libraries if libraries else \["python3.7m"\],' Python-3.6.10/Lib/distutils/extension.py
 # Apply a hack to get the NDK library paths into the Python build. TODO(someday): Discuss with e.g. Kivy and see how to remove this.
-RUN sed -i -e "s# dirs = \[\]# dirs = \[os.environ.get('SYSROOT_INCLUDE'), os.environ.get('SYSROOT_LIB')\]#" Python-3.7.6/setup.py
+RUN sed -i -e "s# dirs = \[\]# dirs = \[os.environ.get('SYSROOT_INCLUDE'), os.environ.get('SYSROOT_LIB')\]#" Python-3.6.10/setup.py
 # Apply a hack to get the sqlite include path into setup.py. TODO(someday): Discuss with upstream Python if we can use pkg-config for sqlite.
-RUN sed -i -E 's,sqlite_inc_paths = [[][]],sqlite_inc_paths = ["/opt/python-build/built/sqlite/include"],' Python-3.7.6/setup.py
+RUN sed -i -E 's,sqlite_inc_paths = [[][]],sqlite_inc_paths = ["/opt/python-build/built/sqlite/include"],' Python-3.6.10/setup.py
 # Apply a hack to make platform.py stop looking for a libc version.
-RUN sed -i -e "s#Linux#DisabledLinuxCheck#" Python-3.7.6/Lib/platform.py
+RUN sed -i -e "s#Linux#DisabledLinuxCheck#" Python-3.6.10/Lib/platform.py
 
 # Build Python, pre-configuring some values so it doesn't check if those exist.
 ENV SYSROOT_LIB=${TOOLCHAIN}/sysroot/usr/lib/${TOOLCHAIN_TRIPLE}/${ANDROID_API_LEVEL}/ \
     SYSROOT_INCLUDE=${NDK}/sysroot/usr/include/
-RUN cd Python-3.7.6 && LDFLAGS="$(pkg-config --libs-only-L libffi) $(pkg-config --libs-only-L liblzma) -L${LIBBZ2_INSTALL_DIR}/lib -L$OPENSSL_INSTALL_DIR/lib" \
+RUN cd Python-3.6.10 && LDFLAGS="$(pkg-config --libs-only-L libffi) $(pkg-config --libs-only-L liblzma) -L${LIBBZ2_INSTALL_DIR}/lib -L$OPENSSL_INSTALL_DIR/lib" \
     CFLAGS="${CFLAGS} -I${LIBBZ2_INSTALL_DIR}/include $(pkg-config --cflags-only-I libffi) $(pkg-config --cflags-only-I liblzma) " \
     ./configure --host "$TOOLCHAIN_TRIPLE" --build "$COMPILER_TRIPLE" --enable-shared \
     --enable-ipv6 ac_cv_file__dev_ptmx=yes \
@@ -139,55 +139,55 @@ RUN cd Python-3.7.6 && LDFLAGS="$(pkg-config --libs-only-L libffi) $(pkg-config 
     ac_cv_func_setlocale=no ac_cv_working_tzset=no ac_cv_member_struct_tm_tm_zone=no ac_cv_func_sched_setscheduler=no
 # Override ./configure results to futher force Python not to use some libc calls that trigger blocked syscalls.
 # TODO(someday): See if HAVE_INITGROUPS has another way to disable it.
-RUN cd Python-3.7.6 && sed -i -E 's,#define (HAVE_CHROOT|HAVE_SETGROUPS|HAVE_INITGROUPS) 1,,' pyconfig.h
+RUN cd Python-3.6.10 && sed -i -E 's,#define (HAVE_CHROOT|HAVE_SETGROUPS|HAVE_INITGROUPS) 1,,' pyconfig.h
 # Adjust timemodule.c to perform data validation for mktime(). The libc call is supposed to do its own
 # validation, but on one Android 8.1 device, it doesn't. We leverage the existing AIX-related check in timemodule.c.
-RUN cd Python-3.7.6 && sed -i -E 's,#ifdef _AIX,#if defined(_AIX) || defined(__ANDROID__),' Modules/timemodule.c
+RUN cd Python-3.6.10 && sed -i -E 's,#ifdef _AIX,#if defined(_AIX) || defined(__ANDROID__),' Modules/timemodule.c
 # Override posixmodule.c assumption that fork & exec exist & work.
-RUN cd Python-3.7.6 && sed -i -E 's,#define.*(HAVE_EXECV|HAVE_FORK).*1,,' Modules/posixmodule.c
+RUN cd Python-3.6.10 && sed -i -E 's,#define.*(HAVE_EXECV|HAVE_FORK).*1,,' Modules/posixmodule.c
 # Copy libbz2 into the SYSROOT_LIB. This is the IMHO the easiest way for setup.py to find it.
 RUN cp "${LIBBZ2_INSTALL_DIR}/lib/libbz2.so" $SYSROOT_LIB
 # Compile Python. We can still remove some tests from the test suite before `make install`.
-RUN cd Python-3.7.6 && make
+RUN cd Python-3.6.10 && make
 
 # Modify stdlib & test suite before `make install`.
 
 # Apply a hack to ssl.py so it looks at the Android certificate store.
-ADD 3.7.patches Python-3.7.6/patches
-RUN cd Python-3.7.6 && quilt push
+ADD 3.7.patches Python-3.6.10/patches
+RUN cd Python-3.6.10 && quilt push
 # Apply a hack to ctypes so that it loads libpython.so, even though this isn't Windows.
-RUN sed -i -e 's,pythonapi = PyDLL(None),pythonapi = PyDLL("libpython3.7m.so"),' Python-3.7.6/Lib/ctypes/__init__.py
+RUN sed -i -e 's,pythonapi = PyDLL(None),pythonapi = PyDLL("libpython3.7m.so"),' Python-3.6.10/Lib/ctypes/__init__.py
 # Hack the test suite so that when it tries to remove files, if it can't remove them, the error passes silently.
 # To see if ths is still an issue, run `test_bdb`.
-RUN sed -i -e "s#NotADirectoryError#NotADirectoryError, OSError#" Python-3.7.6/Lib/test/support/__init__.py
+RUN sed -i -e "s#NotADirectoryError#NotADirectoryError, OSError#" Python-3.6.10/Lib/test/support/__init__.py
 # Ignore some tests
 ADD 3.7.ignore_some_tests.py .
-RUN python3.7 3.7.ignore_some_tests.py $(find Python-3.7.6/Lib/test -iname '*.py') $(find Python-3.7.6/Lib/distutils/tests -iname '*.py') $(find Python-3.7.6/Lib/unittest/test/ -iname '*.py') $(find Python-3.7.6/Lib/lib2to3/tests -iname '*.py')
+RUN python3.7 3.7.ignore_some_tests.py $(find Python-3.6.10/Lib/test -iname '*.py') $(find Python-3.6.10/Lib/distutils/tests -iname '*.py') $(find Python-3.6.10/Lib/unittest/test/ -iname '*.py') $(find Python-3.6.10/Lib/lib2to3/tests -iname '*.py')
 # Skip test_multiprocessing in test_venv.py. Not sure why this fails yet.
-RUN cd Python-3.7.6 && sed -i -e 's,def test_multiprocessing,def skip_test_multiprocessing,' Lib/test/test_venv.py
+RUN cd Python-3.6.10 && sed -i -e 's,def test_multiprocessing,def skip_test_multiprocessing,' Lib/test/test_venv.py
 # Skip test_faulthandler & test_signal & test_threadsignals. Signal delivery on Android is not super reliable.
-RUN cd Python-3.7.6 && rm Lib/test/test_faulthandler.py Lib/test/test_signal.py Lib/test/test_threadsignals.py
+RUN cd Python-3.6.10 && rm Lib/test/test_faulthandler.py Lib/test/test_signal.py Lib/test/test_threadsignals.py
 # In test_cmd_line.py:
 # - test_empty_PYTHONPATH_issue16309() fails. I think it is because it assumes PYTHONHOME is set;
 #   if we can fix our dependency on that variable for Python subprocesses, we'd be better off.
 # - test_stdout_flush_at_shutdown() fails. The situation is that the test assumes you can't
 #   close() a FD (stdout) that's already been closed; however, seemingly, on Android, you can.
-RUN cd Python-3.7.6 && sed -i -e 's,def test_empty_PYTHONPATH_issue16309,def skip_test_empty_PYTHONPATH_issue16309,' Lib/test/test_cmd_line.py
-RUN cd Python-3.7.6 && sed -i -e 's,def test_stdout_flush_at_shutdown,def skip_test_stdout_flush_at_shutdown,' Lib/test/test_cmd_line.py
+RUN cd Python-3.6.10 && sed -i -e 's,def test_empty_PYTHONPATH_issue16309,def skip_test_empty_PYTHONPATH_issue16309,' Lib/test/test_cmd_line.py
+RUN cd Python-3.6.10 && sed -i -e 's,def test_stdout_flush_at_shutdown,def skip_test_stdout_flush_at_shutdown,' Lib/test/test_cmd_line.py
 # TODO(someday): restore asyncio tests & fix them
-RUN cd Python-3.7.6 && rm -rf Lib/test/test_asyncio
+RUN cd Python-3.6.10 && rm -rf Lib/test/test_asyncio
 # TODO(someday): restore subprocess tests & fix them
-RUN cd Python-3.7.6 && rm Lib/test/test_subprocess.py
+RUN cd Python-3.6.10 && rm Lib/test/test_subprocess.py
 # TODO(someday): Restore test_httpservers tests. They depend on os.setuid() existing, and they have
 # little meaning in Android.
-RUN cd Python-3.7.6 && rm Lib/test/test_httpservers.py
+RUN cd Python-3.6.10 && rm Lib/test/test_httpservers.py
 # TODO(someday): restore xmlrpc tests & fix them; right now they hang forever.
-RUN cd Python-3.7.6 && rm Lib/test/test_xmlrpc.py
+RUN cd Python-3.6.10 && rm Lib/test/test_xmlrpc.py
 # TODO(someday): restore wsgiref tests & fix them; right now they hang forever.
-RUN cd Python-3.7.6 && rm Lib/test/test_wsgiref.py
+RUN cd Python-3.6.10 && rm Lib/test/test_wsgiref.py
 
 # Install Python.
-RUN cd Python-3.7.6 && make install
+RUN cd Python-3.6.10 && make install
 RUN cp -a $PYTHON_INSTALL_DIR/lib/libpython3.7m.so "$JNI_LIBS"
 ENV ASSETS_DIR $APPROOT/app/src/main/assets/
 RUN mkdir -p "$ASSETS_DIR" && cd "$PYTHON_INSTALL_DIR" && zip -0 -q "$ASSETS_DIR"/pythonhome.${TARGET_ABI_SHORTNAME}.zip -r .

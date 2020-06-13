@@ -35,9 +35,10 @@ function extract_image_name() {
     tee >(tail -n1 | grep '^Successfully built ' | cut -d' ' -f3 >"$IMAGE_NAME_TEMPFILE")
 }
 
+PYTHON_VERSION="3.6"
+
 function build_one_abi() {
     TARGET_ABI_SHORTNAME="$1"
-    PYTHON_VERSION="$2"
     # Using ANDROID_API_LEVEL=21 for two reasons:
     #
     # - >= 21 gives us a `localeconv` libc function (admittedly a
@@ -114,7 +115,7 @@ function download_urls() {
         "https://dl.google.com/android/repository/android-ndk-r20b-linux-x86_64.zip=8381c440fe61fcbb01e209211ac01b519cd6adf51ab1c2281d5daad6ca4c8c8c"
         "https://www.openssl.org/source/openssl-1.1.1d.tar.gz=1e3a91bc1f9dfce01af26026f856e064eab4c8ee0a8f457b5ae30b40b8b711f2"
         "https://github.com/libffi/libffi/releases/download/v3.3/libffi-3.3.tar.gz=72fba7922703ddfa7a028d513ac15a85c8d54c8d67f55fa5a4802885dc652056"
-        "https://www.python.org/ftp/python/3.7.6/Python-3.7.6.tar.xz=55a2cce72049f0794e9a11a84862e9039af9183603b78bc60d89539f82cf533f"
+        "https://www.python.org/ftp/python/3.6.10/Python-3.6.10.tar.xz=0a833c398ac8cd7c5538f7232d8531afef943c60495c504484f308dac3af40de"
         "https://tukaani.org/xz/xz-5.2.4.tar.gz=b512f3b726d3b37b6dc4c8570e137b9311e7552e8ccbab4d39d47ce5f4177145"
         "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz"="ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"
         "http://archive.ubuntu.com/ubuntu/pool/main/s/sqlite3/sqlite3_3.11.0.orig.tar.xz"="79fb8800b8744337d5317270899a5a40612bb76f81517e131bf496c26b044490"
@@ -174,19 +175,19 @@ function main() {
     mkdir -p build
     mkdir -p dist
     fix_permissions
-    rm -rf ./build/3.7
-    mkdir -p build/3.7
+    rm -rf ./build/"$PYTHON_VERSION"
+    mkdir -p build/"$PYTHON_VERSION"
 
     # Allow TARGET_ABIs to be overridden by argv.
     TARGET_ABIS="${@:-x86 x86_64 armeabi-v7a arm64-v8a}"
     for TARGET_ABI_SHORTNAME in $TARGET_ABIS; do
-        build_one_abi "$TARGET_ABI_SHORTNAME" "3.7"
+        build_one_abi "$TARGET_ABI_SHORTNAME" "${PYTHON_VERSION}"
     done
 
     # Make a ZIP file.
     fix_permissions
-    cd build/3.7/app && zip -q -i '*' -r ../../../dist/Python-3.7-Android-support${BUILD_TAG}.zip . && cd ../../..
+    cd build/${PYTHON_VERSION}/app && zip -q -i '*' -r ../../../dist/Python-${PYTHON_VERSION}-Android-support${BUILD_TAG}.zip . && cd ../../..
 }
 
 download_urls
-main "$@"
+main $@"
