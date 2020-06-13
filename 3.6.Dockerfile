@@ -154,7 +154,7 @@ RUN cd Python-3.6.10 && make
 
 # Apply a hack to ssl.py so it looks at the Android certificate store.
 ADD 3.6.patches Python-3.6.10/patches
-# TODO RUN cd Python-3.6.10 && quilt push
+RUN cd Python-3.6.10 && quilt push
 # Apply a hack to ctypes so that it loads libpython.so, even though this isn't Windows.
 RUN sed -i -e 's,pythonapi = PyDLL(None),pythonapi = PyDLL("libpython3.6m.so"),' Python-3.6.10/Lib/ctypes/__init__.py
 # Hack the test suite so that when it tries to remove files, if it can't remove them, the error passes silently.
